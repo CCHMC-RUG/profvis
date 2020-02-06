@@ -1,2 +1,2 @@
 # profvis
-Presentation by PJ VanCamp on code profiling
+Presentation by PJ Van Camp on code profiling - February 5th, 2020
