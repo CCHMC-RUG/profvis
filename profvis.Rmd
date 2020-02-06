@@ -1,0 +1,223 @@
+---
+title: "profvis"
+author: "PJ Van Camp"
+date: "16/01/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(profvis)
+```
+
+#Intro to Profvis
+
+## Which code is slower...
+
+### Code 1
+```{r}
+for(i in 1:5){
+  print(paste("iteration", i))
+  Sys.sleep(0.5)
+}
+```
+
+### Code 2
+```{r}
+for(i in 1:5){
+  print(paste("iteration", i))
+  Sys.Date()
+}
+```
+
+
+------------------------------------------------------
+
+
+## Which code is slower...
+```{r}
+n = 300000 #300
+myData = data.frame(x = 1:n, 
+                    y = runif(n), 
+                    z = 0)
+head(myData)
+```
+
+
+### Code 1
+```{r}
+for(i in 2:nrow(myData)){
+  myData[i,"z"] = myData[i,"y"] - myData[i-1,"y"]
+}
+
+head(myData)
+```
+
+### Code 2
+```{r}
+y = myData$y
+myList = rep(0, length(y))
+for(i in 2:length(myList)){
+  myList[i] = y[i] - y[i-1]
+}
+myData$z = myList
+
+head(myData)
+
+```
+
+
+
+----------------------------------------------------------------------
+
+## Which code is slower... TIME IT
+
+### Code 1 - timed
+```{r}
+start = Sys.time()
+
+for(i in 2:nrow(myData)){
+  myData[i,"z"] = myData[i,"y"] - myData[i-1,"y"]
+}
+
+print(Sys.time() - start)
+
+```
+
+### Code 2 - timed
+```{r}
+start = Sys.time()
+
+y = myData$y
+myList = rep(0, length(y))
+for(i in 2:length(myList)){
+  myList[i] = y[i] - y[i-1]
+}
+myData$z = myList
+
+print(Sys.time() - start)
+
+```
+
+
+
+----------------------------------------------------------------------
+
+## Which code is slower... PROFVIS
+
+### Code 1 - Profvis
+```{r}
+profvis({
+
+  for(i in 2:nrow(myData)){
+    myData[i,"z"] = myData[i,"y"] - myData[i-1,"y"]
+  }
+  
+})
+
+```
+
+### Code 2 - Profvis
+```{r}
+profvis({
+
+  y = myData$y
+  myList = rep(0, length(y))
+  for(i in 2:length(myList)){
+    myList[i] = y[i] - y[i-1]
+  }
+  myData$z = myList
+
+})
+```
+
+
+### Use the shortcut!!  
+1) Select  the lines of code to evaluate
+2) Ctrl + Alt + Shift + P (WINDOWS) --- Cmnd + Shift + Alt + P (MAC)
+```{r}
+y = myData$y
+myList = rep(0, length(y))
+for(i in 2:length(myList)){
+  myList[i] = y[i] - y[i-1]
+}
+myData$z = myList
+```
+
+
+
+
+----------------------------------------------------------------------
+
+
+
+# Creating faster code
+
+## Genrating simple text encryption method
+```{r}
+options(stringsAsFactors = F)
+n = 50000
+myData = data.frame(message = sample(LETTERS, n, replace = T),
+                    key = sample(LETTERS, n, replace = T))
+head(myData)
+```
+
+
+## Slowest implementation
+```{r}
+myData$encrypted = ""
+for(i in 1:nrow(myData)){
+  mySum = (which(myData[i, "message"] == LETTERS) + which(myData[i, "key"] == LETTERS)) %% 26
+  mySum = ifelse(mySum == 0, 26, mySum)
+  myData[i, "encrypted"] = LETTERS[mySum]
+}
+head(myData)
+```
+
+## Avoiding looping over a data frame
+```{r}
+message = myData$message
+key = myData$key
+encrypted = c()
+for(i in 1:nrow(myData)){
+  mySum = (which(message[i] == LETTERS) + which(key[i] == LETTERS)) %% 26
+  mySum= ifelse(mySum == 0, 26, mySum)
+  encrypted[i] = LETTERS[mySum]
+}
+myData$encrypted = encrypted
+head(myData)
+```
+
+## Use mapping instead of looping
+```{r}
+message = myData$message
+key = myData$key
+encrypted = c()
+myData$encrypted = sapply(1:nrow(myData), function(i){
+  mySum = (which(message[i] == LETTERS) + which(key[i] == LETTERS)) %% 26
+  mySum = ifelse(mySum == 0, 26, mySum)
+  LETTERS[mySum]
+})
+head(myData)
+```
+
+## Implement as vector operations
+```{r}
+mySum = (as.integer(as.factor(myData$message)) + as.integer(as.factor(myData$key))) %% 26
+mySum = ifelse(mySum == 0, 26, mySum)
+myData$encrypted = LETTERS[mySum]
+head(myData)
+```
+
+
+## This could also have been done for the example used in profvis explanation
+```{r}
+n = 300000 #300
+myData = data.frame(x = 1:n, 
+                    y = runif(n), 
+                    z = 0)
+
+myData$z[-1] = myData$y[-1] - myData$y[-length(myData$y)]
+head(myData)
+```
+
